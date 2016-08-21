@@ -2,7 +2,8 @@
   "variables": {
     "iso_url": "{{env `ISO_IMAGE`}}",
     "iso_checksum": "{{env `ISO_MD5_SUM`}}",
-    "output_directory": "{{env `PACKER_BUILD_DIR`}}"
+    "output_directory": "{{env `PACKER_BUILD_DIR`}}",
+    "version": "{{env `VERSION`}}"
   },
   "builders":
   [
@@ -81,6 +82,43 @@
       "net_device": "virtio-net",
       "disk_interface": "virtio",
       "boot_wait": "5s"
+    },
+    {
+      "type": "amazon-ebs",
+      "source_ami": "ami-ba3e14d9",
+      "associate_public_ip_address": true,
+      "instance_type": "t2.nano",
+      "ssh_username": "ubuntu",
+      "ssh_port": 122,
+      "ssh_timeout": "12m",
+      "ami_name": "VyOS {{user `version`}}",
+      "user_data_file": "scripts/packer-scripts/aws-user-data.sh",
+      "launch_block_device_mappings":
+      [
+        {
+          "device_name": "/dev/sda1",
+          "volume_size": 8,
+          "delete_on_termination": true
+        },
+        {
+          "device_name": "/dev/sdf",
+          "volume_size": 8,
+          "delete_on_termination": true
+        }
+      ],
+      "ami_block_device_mappings":
+      [
+        {
+          "device_name": "/dev/sda1",
+          "volume_size": 8,
+          "delete_on_termination": true
+        },
+        {
+          "device_name": "/dev/sdf",
+          "volume_size": 0,
+          "virtual_name": "ephemeral0"
+        }
+      ]
     }
   ],
   "provisioners": [
@@ -89,6 +127,37 @@
       "only": ["vmware-image"],
       "scripts": [
         "scripts/packer-scripts/vmware.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "only": ["amazon-ebs"],
+      "inline": [
+        "mkdir -p /tmp/vyos-build"
+      ]
+    },
+    {
+      "type": "file",
+      "only": ["amazon-ebs"],
+      "source": "scripts/packer-scripts",
+      "destination": "/tmp/vyos-build"
+    },
+    {
+      "type": "file",
+      "only": ["amazon-ebs"],
+      "source": "{{user `iso_url`}}",
+      "destination": "/tmp/vyos-build/vyos.iso"
+    },
+    {
+      "type": "shell",
+      "only": ["amazon-ebs"],
+      "inline_shebang": "/bin/bash",
+      "inline": [
+        "set -e",
+        "set -x",
+        "echo export VERSION={{user `version`}} > /tmp/vyos-build/scripts/version.sh",
+        "chmod +x /tmp/vyos-build/packer-scripts/*.sh",
+        "sudo /tmp/vyos-build/scripts/build-ami.sh"
       ]
     }
   ]

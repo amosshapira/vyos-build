@@ -51,6 +51,12 @@ vmware:
 	@scripts/check-vm-build-env
 	@scripts/build-vmware-image
 
+.PHONY: ami
+.ONESHELL:
+ami:
+	@set -e
+	@scripts/build-ami
+
 .PHONY: clearfog
 .ONESHELL:
 clearfog: clean prepare
